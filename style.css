@@ -1,0 +1,9 @@
+body {
+    margin: 0;
+    overflow: hidden; /* Prevents scrollbars when canvas is full screen */
+}
+
+#drawing-canvas {
+    border: 1px solid #ccc;
+    cursor: crosshair;
+}
