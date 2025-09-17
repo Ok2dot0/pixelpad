@@ -12,6 +12,19 @@
             <label for="color-picker">Color:</label>
             <input type="color" id="color-picker" value="#000000">
         </div>
+
+        <div class="tool">
+            <label for="harmony-selector">Harmony:</label>
+            <select id="harmony-selector">
+                <option value="complementary">Complementary</option>
+                <option value="analogous">Analogous</option>
+                <option value="triadic">Triadic</option>
+            </select>
+        </div>
+        <div id="palette-container"></div>
+
+        <div class="separator"></div>
+
         <div class="tool">
             <label for="brush-size">Size:</label>
             <input type="range" id="brush-size" min="1" max="100" value="5">

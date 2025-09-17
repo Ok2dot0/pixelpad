@@ -47,9 +47,8 @@ body {
 }
 #color-picker::-webkit-color-swatch {
     border-radius: 50%;
-    border: 1px solid #ccc;
+    border: 2px solid #555;
 }
-
 
 #clear-canvas {
     background-color: #e63946;
@@ -64,4 +63,33 @@ body {
 
 #clear-canvas:hover {
     background-color: #d62828;
+}
+
+
+.separator {
+    width: 2px;
+    height: 30px;
+    background-color: #ddd;
+}
+
+#palette-container {
+    display: flex;
+    gap: 8px;
+}
+
+.palette-swatch {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: border-color 0.2s;
+}
+
+.palette-swatch:hover {
+    border-color: #999;
+}
+
+.palette-swatch.selected {
+    border-color: #333;
 }
