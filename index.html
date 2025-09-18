@@ -3,35 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PixelPad</title>
+    <title>PixelPad Pro</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="toolbar">
-        <div class="tool">
+        <div class="tool-group">
             <label for="color-picker">Color:</label>
-            <input type="color" id="color-picker" value="#000000">
-        </div>
-
-        <div class="tool">
+            <input type="color" id="color-picker" value="#ff9500">
             <label for="harmony-selector">Harmony:</label>
             <select id="harmony-selector">
                 <option value="complementary">Complementary</option>
                 <option value="analogous">Analogous</option>
-                <option value="triadic">Triadic</option>
+                <option value="triadic" selected>Triadic</option>
             </select>
+            <div id="palette-container"></div>
         </div>
-        <div id="palette-container"></div>
-
         <div class="separator"></div>
-
-        <div class="tool">
-            <label for="brush-size">Size:</label>
-            <input type="range" id="brush-size" min="1" max="100" value="5">
+        <div class="tool-group">
+            <button id="brush-tool" class="tool-btn active" title="Brush (B)">🖌️</button>
+            <button id="eraser-tool" class="tool-btn" title="Eraser (E)">🧼</button>
+            <button id="rect-tool" class="tool-btn" title="Rectangle Tool (R)">▭</button>
+            <button id="circle-tool" class="tool-btn" title="Circle Tool (O)">⚪</button>
         </div>
-        <button id="clear-canvas">Clear</button>
+        <div class="separator"></div>
+        <div class="tool-group">
+            <input type="range" id="brush-size" min="1" max="100" value="5" title="Brush Size">
+            <button id="fill-shape-toggle" class="tool-btn" title="Fill Shape (F)"> भरें</button>
+            <button id="symmetry-toggle" class="tool-btn" title="Symmetry Mode (M)"> | </button>
+        </div>
+        <div class="separator"></div>
+        <div class="tool-group">
+            <button id="undo-btn" class="tool-btn" title="Undo (Ctrl+Z)">↩️</button>
+            <button id="redo-btn" class="tool-btn" title="Redo (Ctrl+Y)">↪️</button>
+            <button id="clear-canvas" class="danger-btn" title="Clear Canvas">🗑️</button>
+            <button id="save-image" class="success-btn" title="Save Image (Ctrl+S)">💾</button>
+        </div>
     </div>
 
+    <div id="brush-preview"></div>
+    <div id="brush-size-preview" class="hidden"></div>
+    <a id="download-link" style="display: none;"></a>
     <canvas id="drawing-canvas"></canvas>
     <script src="script.js"></script>
 </body>
