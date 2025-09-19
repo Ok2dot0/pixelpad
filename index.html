@@ -1,69 +1,121 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PixelPad</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
-</head>
-<body>
-    <div id="toolbar" class="toolbar">
-        <!-- Color Section -->
-        <div class="tool-group">
-            <label for="color-picker">Color:</label>
-            <input type="color" id="color-picker" value="#ff9500">
-            <label for="harmony-selector">Harmony:</label>
-            <select id="harmony-selector">
-                <option value="complementary">Complementary</option>
-                <option value="analogous">Analogous</option>
-                <option value="triadic" selected>Triadic</option>
-            </select>
-            <div id="palette-container"></div>
-        </div>
-        <div class="separator"></div>
-        <!-- Tool Selection -->
-        <div class="tool-group">
-            <button id="brush-tool" class="tool-btn active" title="Brush (B)"><i class="ti ti-paint"></i></button>
-            <button id="calligraphy-brush-tool" class="tool-btn" title="Calligraphy Brush (N)"><i class="ti ti-pencil"></i></button>
-            <button id="spray-brush-tool" class="tool-btn" title="Spray Brush (V)"><i class="ti ti-spray"></i></button>
-            <button id="eraser-tool" class="tool-btn" title="Eraser (E)"><i class="ti ti-eraser"></i></button>
-            <button id="rect-tool" class="tool-btn" title="Rectangle (R)"><i class="ti ti-rectangle"></i></button>
-            <button id="circle-tool" class="tool-btn" title="Circle (O)"><i class="ti ti-circle"></i></button>
-        </div>
-        <div class="separator"></div>
-        <!-- Tool Settings -->
-        <div class="tool-group">
-            <label for="brush-size">Size:</label>
-            <input type="range" id="brush-size" min="1" max="100" value="10" title="Brush Size">
-            
-            <!-- Primary Slider (switches between Opacity and Strength) -->
-            <label for="primary-slider" id="primary-slider-label">Opacity:</label>
-            <input type="range" id="primary-slider" min="0.1" max="1" value="1" step="0.1" title="Opacity/Strength">
-            
-            <!-- *** NEW: Dedicated Opacity Slider for Spray Tool (hidden by default) *** -->
-            <div id="spray-opacity-container" class="tool-group" style="display: none; margin-left: 8px;">
-                <label for="spray-opacity-slider">Opacity:</label>
-                <input type="range" id="spray-opacity-slider" min="0.1" max="1" value="1" step="0.1" title="Spray Opacity">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>PixelPad</title>
+        <link rel="stylesheet" href="style.css" />
+        <link
+            rel="stylesheet"
+            href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css"
+        />
+    </head>
+    <body>
+        <div id="toolbar" class="toolbar">
+            <div class="tool-group">
+                <label for="color-picker">Color:</label>
+                <input type="color" id="color-picker" value="#ff9500" style="display:none" />
+                <div id="custom-color-swatch" class="color-swatch no-drag" title="Pick color"></div>
+                <div id="custom-color-picker" class="color-picker-popup no-drag is-hidden" role="dialog" aria-label="Color picker" aria-modal="false">
+                    <div class="cp-row">
+                        <canvas id="cp-sv" width="220" height="160" aria-label="Saturation/Value"></canvas>
+                        <canvas id="cp-h" width="22" height="160" aria-label="Hue"></canvas>
+                    </div>
+                    <div class="cp-row cp-inputs">
+                        <label for="cp-hex">Hex</label>
+                        <input id="cp-hex" type="text" value="#ff9500" maxlength="7" spellcheck="false" />
+                        <button id="cp-close" type="button" class="tool-btn">✕</button>
+                    </div>
+                </div>
+                <label for="harmony-selector">Harmony:</label>
+                <select id="harmony-selector">
+                    <option value="complementary">Complementary</option>
+                    <option value="analogous">Analogous</option>
+                    <option value="triadic" selected>Triadic</option>
+                </select>
+                <div id="palette-container"></div>
             </div>
+            <div class="separator"></div>
+            <div class="tool-group">
+                <button id="brush-tool" class="tool-btn active" title="Brush (B)">
+                    <i class="ti ti-paint"></i>
+                </button>
+                <button id="calligraphy-brush-tool" class="tool-btn" title="Calligraphy Brush (N)">
+                    <i class="ti ti-pencil"></i>
+                </button>
+                <button id="spray-brush-tool" class="tool-btn" title="Spray Brush (V)">
+                    <i class="ti ti-spray"></i>
+                </button>
+                <button id="eraser-tool" class="tool-btn" title="Eraser (E)">
+                    <i class="ti ti-eraser"></i>
+                </button>
+                <button id="rect-tool" class="tool-btn" title="Rectangle (R)">
+                    <i class="ti ti-rectangle"></i>
+                </button>
+                <button id="circle-tool" class="tool-btn" title="Circle (O)">
+                    <i class="ti ti-circle"></i>
+                </button>
+            </div>
+            <div class="separator"></div>
+            <div class="tool-group">
+                <label for="brush-size">Size:</label>
+                <input type="range" id="brush-size" min="1" max="100" value="10" title="Brush Size" />
 
-            <button id="fill-shape-toggle" class="tool-btn" title="Fill Shape (F)"><i class="ti ti-droplet-filled"></i></button>
-            <button id="symmetry-toggle" class="tool-btn" title="Symmetry (M)"><i class="ti ti-flip-horizontal"></i></button>
-        </div>
-        <div class="separator"></div>
-        <!-- History & File -->
-        <div class="tool-group">
-            <button id="undo-btn" class="tool-btn" title="Undo (Ctrl+Z)"><i class="ti ti-arrow-back-up"></i></button>
-            <button id="redo-btn" class="tool-btn" title="Redo (Ctrl+Y)"><i class="ti ti-arrow-forward-up"></i></button>
-            <button id="clear-canvas" class="danger-btn" title="Clear Canvas"><i class="ti ti-trash"></i></button>
-            <button id="save-image" class="success-btn" title="Save Image (Ctrl+S)"><i class="ti ti-device-floppy"></i></button>
-        </div>
-    </div>
+                <label for="primary-slider" id="primary-slider-label">Opacity:</label>
+                <input
+                    type="range"
+                    id="primary-slider"
+                    min="0.1"
+                    max="1"
+                    value="1"
+                    step="0.1"
+                    title="Opacity/Strength"
+                />
 
-    <div id="brush-preview"></div>
-    <div id="brush-size-preview" class="hidden"></div>
-    <a id="download-link" style="display: none;"></a>
-    <canvas id="drawing-canvas"></canvas>
-    <script src="script.js"></script>
-</body>
-</html>
+                <div id="spray-opacity-container" class="tool-group" style="display: none; margin-left: 8px;">
+                    <label for="spray-opacity-slider">Opacity:</label>
+                    <input
+                        type="range"
+                        id="spray-opacity-slider"
+                        min="0.1"
+                        max="1"
+                        value="1"
+                        step="0.1"
+                        title="Spray Opacity"
+                    />
+                </div>
+
+                <button id="fill-shape-toggle" class="tool-btn" title="Fill Shape (F)">
+                    <i class="ti ti-droplet-filled"></i>
+                </button>
+                <button id="rounded-corners-toggle" class="tool-btn" title="Rounded Corners" style="display: none;">
+                    <i class="ti ti-square-rounded"></i>
+                </button>
+                <button id="symmetry-toggle" class="tool-btn" title="Symmetry (M)">
+                    <i class="ti ti-flip-horizontal"></i>
+                </button>
+            </div>
+            <div class="separator"></div>
+            <div class="tool-group">
+                <button id="undo-btn" class="tool-btn" title="Undo (Ctrl+Z)">
+                    <i class="ti ti-arrow-back-up"></i>
+                </button>
+                <button id="redo-btn" class="tool-btn" title="Redo (Ctrl+Y)">
+                    <i class="ti ti-arrow-forward-up"></i>
+                </button>
+                <button id="clear-canvas" class="danger-btn" title="Clear Canvas">
+                    <i class="ti ti-trash"></i>
+                </button>
+                <button id="save-image" class="success-btn" title="Save Image (Ctrl+S)">
+                    <i class="ti ti-device-floppy"></i>
+                </button>
+            </div>
+        </div>
+
+        <div id="brush-preview"></div>
+        <div id="brush-size-preview" class="hidden"></div>
+        <a id="download-link" style="display: none"></a>
+        <canvas id="drawing-canvas"></canvas>
+        <script src="script.js"></script>
+    </body>
+    </html>
