@@ -1,5 +1,11 @@
+// Entry point: initialize the app once the DOM is fully loaded
+import { hexToRgba, hexToHsv, hsvToHex, hexToHsl, hslToHex, rotateHue } from './color-utils.js';
+
 window.addEventListener('load', () => {
 
+    // ===== Setup & DOM refs ==================================================
+
+    // --- DOM references ---
     const canvas = document.getElementById('drawing-canvas');
     const ctx = canvas.getContext('2d');
     const toolbar = document.getElementById('toolbar');
@@ -28,49 +34,97 @@ window.addEventListener('load', () => {
     const saveBtn = document.getElementById('save-image');
     const clearButton = document.getElementById('clear-canvas');
     const downloadLink = document.getElementById('download-link');
+    
+    const saveModal = document.getElementById('save-modal');
+    const saveModalClose = document.getElementById('save-modal-close');
+    const saveFilename = document.getElementById('save-filename');
+    const saveFormat = document.getElementById('save-format');
+    const saveQualityRow = document.getElementById('save-quality-row');
+    const saveQuality = document.getElementById('save-quality');
+    const saveQualityVal = document.getElementById('save-quality-val');
+    const saveScale = document.getElementById('save-scale');
+    const saveBg = document.getElementById('save-bg');
+    const saveCancel = document.getElementById('save-cancel');
+    const saveConfirm = document.getElementById('save-confirm');
+    const helpBtn = document.getElementById('help-shortcuts');
+    const helpModal = document.getElementById('help-modal');
+    const helpModalClose = document.getElementById('help-modal-close');
+    const helpOk = document.getElementById('help-ok');
 
-    let isDrawing = false;
-    let activeTool = 'brush-tool';
-    let lastX = 0, lastY = 0;
+    // --- Drawing state ---
+    let isDrawing = false;            // true while mouse is held down on canvas
+    let activeTool = 'brush-tool';    // current tool id (matches button id)
+    let lastX = 0, lastY = 0;         // last mouse position for freehand strokes
 
-    let currentColor = '#ff9500';
-    let currentBrushSize = 10;
-    let currentOpacity = 1;
-    let sprayStrength = 20;
-    let sprayOpacity = 1;
-    let isSymmetryMode = false;
-    let isShapeFilled = false;
-    let isRoundedRect = true;
+    // --- Brush settings ---
+    let currentColor = '#ff9500';     // active color (hex)
+    let currentBrushSize = 10;        // stroke width / nib size
+    let currentOpacity = 1;           // alpha for most tools
+    let sprayStrength = 20;           // particles per tick for spray tool
+    let sprayOpacity = 1;             // alpha used for spray particles
+    let isSymmetryMode = false;       // mirror painting horizontally
+    let isShapeFilled = false;        // fill vs stroke for shape tools
+    let isRoundedRect = true;         // rectangle tool corner style
 
-    let nibAngleDeg = -35;
-    let nibAngle = (nibAngleDeg * Math.PI) / 180;
-    let nibAspect = 0.35;
-    let calligraphyPoints = [];
-    let calligraphyOffscreenCanvas = null;
-    let calligraphyOffCtx = null;
-    let strokeOpacity = 1;
+    // --- Calligraphy brush parameters ---
+    let nibAngleDeg = -35;                              // visual rotation for nib preview
+    let nibAngle = (nibAngleDeg * Math.PI) / 180;       // precomputed radians
+    let nibAspect = 0.35;                               // ellipse aspect ratio
+    let calligraphyPoints = [];                         // sampled points along the stroke
+    let calligraphyOffscreenCanvas = null;              // composited in-memory canvas for live stroke
+    let calligraphyOffCtx = null;                       // context for the offscreen canvas
+    let strokeOpacity = 1;                              // preserves opacity during commit
 
-    let shapeStartX = 0, shapeStartY = 0;
-    let savedCanvasState; 
-    let currentPath;
-    let symmetryPath;
+    // --- Shape drawing + preview paths ---
+    let shapeStartX = 0, shapeStartY = 0;               // drag start for shapes
+    let savedCanvasState;                                // snapshot for live preview
+    let currentPath;                                     // freehand path being drawn
+    let symmetryPath;                                    // mirrored path when symmetry enabled
 
-    let history = [];
-    let historyStep = -1;
+    // --- Undo/redo history ---
+    let history = [];                 // array of data URLs
+    let historyStep = -1;             // index of current state
 
+    // --- UI interactions / color picker state ---
     let isDraggingToolbar = false;
     let dragOffsetX = 0, dragOffsetY = 0;
-    let isMouseOverToolbar = false;
-    let sliderTimeout; 
-    let hue = 30/360;
-    let sat = 1;
-    let val = 1;
-    let isDraggingSV = false;
-    let isDraggingH = false;
+    let isMouseOverToolbar = false;   // suppress canvas cursor preview when over toolbar
+    let sliderTimeout;                // timeout for brush size overlay
+    let hue = 30/360;                 // HSV hue [0..1]
+    let sat = 1;                      // HSV saturation [0..1]
+    let val = 1;                      // HSV value [0..1]
+    let isDraggingSV = false;         // dragging state for SV canvas
+    let isDraggingH = false;          // dragging state for Hue canvas
 
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    // HiDPI canvas sizing
+    let cssWidth = 0, cssHeight = 0, dpr = 1;
+    function resizeCanvas(preserve = true) {
+        const snapshot = preserve ? { url: canvas.toDataURL(), w: cssWidth, h: cssHeight } : null;
+        cssWidth = window.innerWidth;
+        cssHeight = window.innerHeight;
+        dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+        canvas.style.width = cssWidth + 'px';
+        canvas.style.height = cssHeight + 'px';
+        canvas.width = Math.floor(cssWidth * dpr);
+        canvas.height = Math.floor(cssHeight * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        if (snapshot) {
+            const img = new Image();
+            img.onload = () => {
+                // Draw previous content scaled to new CSS size
+                ctx.save();
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.globalAlpha = 1;
+                ctx.drawImage(img, 0, 0, snapshot.w, snapshot.h, 0, 0, cssWidth, cssHeight);
+                ctx.restore();
+            };
+            img.src = snapshot.url;
+        }
+    }
+    resizeCanvas(false);
+    window.addEventListener('resize', () => resizeCanvas(true));
 
+    /** Push current canvas state into undo history. Truncates future states after undo. */
     function saveHistory() {
         if (historyStep < history.length - 1) {
             history = history.slice(0, historyStep + 1);
@@ -80,15 +134,17 @@ window.addEventListener('load', () => {
         updateUndoRedoButtons();
     }
 
+    /** Restore a canvas state from a data URL. */
     function loadState(stateData) {
         const img = new Image();
         img.onload = () => {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(img, 0, 0);
+            ctx.clearRect(0, 0, cssWidth, cssHeight);
+            ctx.drawImage(img, 0, 0, cssWidth, cssHeight);
         };
         img.src = stateData;
     }
 
+    /** Step one state back if available. */
     function undo() {
         if (historyStep > 0) {
             historyStep--;
@@ -97,6 +153,7 @@ window.addEventListener('load', () => {
         }
     }
 
+    /** Step one state forward if available. */
     function redo() {
         if (historyStep < history.length - 1) {
             historyStep++;
@@ -105,11 +162,15 @@ window.addEventListener('load', () => {
         }
     }
 
+    /** Enable/disable undo/redo buttons based on history position. */
     function updateUndoRedoButtons() {
-        undoBtn.disabled = historyStep <= 0;
-        redoBtn.disabled = historyStep >= history.length - 1;
+        const canUndo = historyStep > 0;
+        const canRedo = historyStep < history.length - 1;
+        undoBtn.disabled = !canUndo;
+        redoBtn.disabled = !canRedo;
     }
 
+    /** Main drawing dispatcher for mousemove while drawing. */
     function draw(e) {
         if (!isDrawing) return;
         const x = e.offsetX, y = e.offsetY;
@@ -142,16 +203,21 @@ window.addEventListener('load', () => {
         }
     }
     
+    /** Render a typical freehand stroke (brush/eraser), including symmetry if enabled. */
     function renderStandardStroke(x, y) {
         currentPath.lineTo(x, y);
         ctx.stroke(currentPath);
 
         if (isSymmetryMode && symmetryPath) {
-            symmetryPath.lineTo(canvas.width - x, y);
+            symmetryPath.lineTo(cssWidth - x, y);
             ctx.stroke(symmetryPath);
         }
     }
 
+    /**
+     * Stamp an elliptical nib for the calligraphy brush at the given point.
+     * This builds up a stroke by repeated stamps along the path.
+     */
     function stampCalligraphyNib(targetCtx, x, y, angleRad) {
         targetCtx.save();
         targetCtx.translate(x, y);
@@ -162,6 +228,10 @@ window.addEventListener('load', () => {
         targetCtx.restore();
     }
 
+    /**
+     * Interpolate between two points and stamp nibs along the way to create
+     * a smooth calligraphy stroke. Mirrors if symmetry is enabled.
+     */
     function drawCalligraphySegment(targetCtx, x1, y1, x2, y2) {
         const dx = x2 - x1;
         const dy = y2 - y1;
@@ -179,34 +249,65 @@ window.addEventListener('load', () => {
             const py = y1 + dy * t;
             stampCalligraphyNib(targetCtx, px, py, nibAngle);
             if (isSymmetryMode) {
-                stampCalligraphyNib(targetCtx, canvas.width - px, py, -nibAngle);
+                stampCalligraphyNib(targetCtx, cssWidth - px, py, -nibAngle);
             }
         }
     }
 
+    // --- Batched spray brush -------------------------------------------------
+    const sprayQueue = [];
+    let sprayRaf = null;
+    function flushSpray() {
+        sprayRaf = null;
+        if (!sprayQueue.length) return;
+        ctx.save();
+        ctx.globalCompositeOperation = activeTool === 'eraser-tool' ? 'destination-out' : 'source-over';
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = hexToRgba(currentColor, sprayOpacity);
+        const p = new Path2D();
+        for (let i = 0; i < sprayQueue.length; i++) {
+            const s = sprayQueue[i];
+            p.rect(s.x, s.y, 1, 1);
+            if (s.mx !== undefined) p.rect(s.mx, s.y, 1, 1);
+        }
+        ctx.fill(p);
+        ctx.restore();
+        sprayQueue.length = 0;
+    }
+    /** Spray paint tool: enqueue tiny squares; flushed in one fill per frame. */
     function sprayBrush(x, y) {
-        ctx.fillStyle = hexToRgba(currentColor, sprayOpacity); 
         for (let i = 0; i < sprayStrength; i++) {
             const offsetX = (Math.random() - 0.5) * currentBrushSize * 2;
             const offsetY = (Math.random() - 0.5) * currentBrushSize * 2;
             if (Math.hypot(offsetX, offsetY) < currentBrushSize) {
-                ctx.fillRect(x + offsetX, y + offsetY, 1, 1);
-                if (isSymmetryMode) {
-                    ctx.fillRect(canvas.width - x - offsetX, y + offsetY, 1, 1);
-                }
+                const sx = x + offsetX;
+                const sy = y + offsetY;
+                const sample = { x: sx, y: sy };
+                if (isSymmetryMode) sample.mx = cssWidth - x - offsetX;
+                sprayQueue.push(sample);
             }
         }
+        if (!sprayRaf) sprayRaf = requestAnimationFrame(flushSpray);
     }
-
+ 
+    /** Draw a rectangle or circle based on drag start and current cursor position. */
     function drawShape(endX, endY) {
         const startX = Math.min(shapeStartX, endX);
         const startY = Math.min(shapeStartY, endY);
         const width = Math.abs(endX - shapeStartX);
         const height = Math.abs(endY - shapeStartY);
 
+        const needsSharpStrokeCorners = (activeTool === 'rect-tool' && !isRoundedRect && !isShapeFilled);
+        if (needsSharpStrokeCorners) {
+            ctx.save();
+            ctx.lineJoin = 'miter';
+            ctx.miterLimit = 10;
+            ctx.lineCap = 'butt';
+        }
+
         ctx.beginPath();
         if (activeTool === 'rect-tool') {
-            if (!isShapeFilled && isRoundedRect) {
+            if (isRoundedRect) {
                 const path = roundedRectPath(startX, startY, width, height, Math.min(20, Math.min(width, height) * 0.2));
                 isShapeFilled ? ctx.fill(path) : ctx.stroke(path);
             } else {
@@ -215,27 +316,33 @@ window.addEventListener('load', () => {
             }
         } else if (activeTool === 'circle-tool') {
             const radius = Math.hypot(width, height) / 2;
-            ctx.arc(startX + width/2, startY + height/2, radius, 0, 2 * Math.PI);
+            ctx.arc(startX + width/2, startY + height/2, radius, 0, Math.PI * 2);
             isShapeFilled ? ctx.fill() : ctx.stroke();
         }
 
         if (isSymmetryMode) {
             ctx.beginPath();
             if (activeTool === 'rect-tool') {
-                if (!isShapeFilled && isRoundedRect) {
-                    const path = roundedRectPath(canvas.width - startX - width, startY, width, height, Math.min(20, Math.min(width, height) * 0.2));
+                if (isRoundedRect) {
+                    const path = roundedRectPath(cssWidth - startX - width, startY, width, height, Math.min(20, Math.min(width, height) * 0.2));
                     isShapeFilled ? ctx.fill(path) : ctx.stroke(path);
                 } else {
-                    ctx.rect(canvas.width - startX - width, startY, width, height);
+                    ctx.rect(cssWidth - startX - width, startY, width, height);
                     isShapeFilled ? ctx.fill() : ctx.stroke();
                 }
             } else if (activeTool === 'circle-tool') {
                 const radius = Math.hypot(width, height) / 2;
-                ctx.arc(canvas.width - (startX + width/2), startY + height/2, radius, 0, 2 * Math.PI);
+                ctx.arc(cssWidth - (startX + width/2), startY + height/2, radius, 0, Math.PI * 2);
+                isShapeFilled ? ctx.fill() : ctx.stroke();
             }
+        }
+
+        if (needsSharpStrokeCorners) {
+            ctx.restore();
         }
     }
 
+    /** Build a rounded-rectangle Path2D with clamped radius. */
     function roundedRectPath(x, y, w, h, r) {
         const path = new Path2D();
         const rr = Math.max(0, Math.min(r, Math.min(w, h) / 2));
@@ -252,6 +359,10 @@ window.addEventListener('load', () => {
         return path;
     }
 
+    /**
+     * Pointer down: initialize tool-specific state and capture a canvas snapshot
+     * for live preview (except for spray, which draws directly).
+     */
     function startDrawing(e) {
         isDrawing = true;
         [lastX, lastY] = [e.offsetX, e.offsetY];
@@ -291,6 +402,7 @@ window.addEventListener('load', () => {
         }
     }
 
+    /** Pointer up/leave: finalize rendering and push to history. */
     function stopDrawing(e) {
         if (!isDrawing) return;
         isDrawing = false;
@@ -321,14 +433,17 @@ window.addEventListener('load', () => {
         currentPath = null;
         symmetryPath = null;
         calligraphyPoints = [];
-    calligraphyOffCtx = null;
-    calligraphyOffscreenCanvas = null;
+        calligraphyOffCtx = null;
+        calligraphyOffscreenCanvas = null;
     }
 
+    /** Activate a tool by id and adjust UI + cursor + primary slider semantics. */
     function setActiveTool(toolId) {
         activeTool = toolId;
-        document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
-        document.getElementById(toolId).classList.add('active');
+        document.querySelectorAll('.tool-btn[id$="-tool"]').forEach(btn => {
+            btn.classList.toggle('active', btn.id === toolId);
+            btn.setAttribute('aria-pressed', String(btn.id === toolId));
+        });
         canvas.className = `cursor-${toolId}`;
         if (toolId === 'spray-brush-tool') {
             primarySliderLabel.textContent = "Strength:";
@@ -348,9 +463,11 @@ window.addEventListener('load', () => {
         if (roundedToggle) {
             roundedToggle.style.display = (toolId === 'rect-tool') ? 'grid' : 'none';
             roundedToggle.classList.toggle('active', isRoundedRect);
+            roundedToggle.setAttribute('aria-pressed', String(isRoundedRect));
         }
     }
     
+    /** Show a live brush-sized overlay following the cursor (for brush/eraser/calligraphy). */
     function updateBrushCursorPreview(e) {
         if (isMouseOverToolbar || isDrawing) {
             brushPreview.style.display = 'none';
@@ -375,8 +492,8 @@ window.addEventListener('load', () => {
         }
     }
 
-       // Random shape generator
-       function generateRandomShapePoints(size) {
+    // --- Random shape helpers (used by potential future tools/features) ---
+    function generateRandomShapePoints(size) {
            const half = size / 2;
            const angleOffset = Math.random() * Math.PI * 2;
            const points = [];
@@ -391,7 +508,7 @@ window.addEventListener('load', () => {
                    break;
                }
                case 'polygon': {
-                   const sides = 4 + Math.floor(Math.random() * 4); // 4-7
+                   const sides = 4 + Math.floor(Math.random() * 4);
                    for (let i = 0; i < sides; i++) {
                        const ang = angleOffset + i * (2 * Math.PI / sides);
                        const r = half * (0.7 + Math.random() * 0.6);
@@ -453,6 +570,7 @@ window.addEventListener('load', () => {
 
        function pickOne(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
     
+    /** Temporarily show a centered overlay matching the current brush size. */
     function showBrushSizePreview() {
         brushPreview.style.display = 'none';
         const isCalligraphy = activeTool === 'calligraphy-brush-tool';
@@ -473,6 +591,7 @@ window.addEventListener('load', () => {
         sliderTimeout = setTimeout(() => brushSizePreview.classList.add('hidden'), 1000);
     }
     
+    /** Drag handler to move the floating toolbar around the screen. */
     function dragToolbar(e) {
         if (!isDraggingToolbar) return;
         toolbar.style.transform = 'translateX(0)';
@@ -480,6 +599,7 @@ window.addEventListener('load', () => {
         toolbar.style.top = `${e.clientY - dragOffsetY}px`;
     }
 
+    /** Stop dragging the toolbar and remove listeners. */
     function stopDragToolbar() {
         isDraggingToolbar = false;
         window.removeEventListener('mousemove', dragToolbar);
@@ -527,47 +647,148 @@ window.addEventListener('load', () => {
         }
     });
 
-    brushSizeSlider.addEventListener('input', (e) => { currentBrushSize = e.target.value; showBrushSizePreview(); });
+    brushSizeSlider.addEventListener('input', (e) => { currentBrushSize = Number(e.target.value); showBrushSizePreview(); });
     
     primarySlider.addEventListener('input', (e) => {
         if (activeTool === 'spray-brush-tool') {
-            sprayStrength = e.target.value;
+            sprayStrength = Number(e.target.value);
         } else {
-            currentOpacity = e.target.value;
+            currentOpacity = Number(e.target.value);
         }
     });
 
-    sprayOpacitySlider.addEventListener('input', (e) => {
-        sprayOpacity = e.target.value;
-    });
+    sprayOpacitySlider.addEventListener('input', (e) => { sprayOpacity = Number(e.target.value); });
 
-    symmetryToggle.addEventListener('click', () => { isSymmetryMode = !isSymmetryMode; symmetryToggle.classList.toggle('active', isSymmetryMode); });
+    symmetryToggle.addEventListener('click', () => {
+        isSymmetryMode = !isSymmetryMode;
+        symmetryToggle.classList.toggle('active', isSymmetryMode);
+        symmetryToggle.setAttribute('aria-pressed', String(isSymmetryMode));
+    });
     if (roundedToggle) {
         roundedToggle.addEventListener('click', () => {
             isRoundedRect = !isRoundedRect;
             roundedToggle.classList.toggle('active', isRoundedRect);
+            roundedToggle.setAttribute('aria-pressed', String(isRoundedRect));
         });
     }
-    fillShapeToggle.addEventListener('click', () => { isShapeFilled = !isShapeFilled; fillShapeToggle.classList.toggle('active', isShapeFilled); });
-    saveBtn.addEventListener('click', () => {
-        const f = prompt("png or jpeg?", "png");
-        if (f && (f === 'png' || f === 'jpeg')) {
+    fillShapeToggle.addEventListener('click', () => {
+        isShapeFilled = !isShapeFilled;
+        fillShapeToggle.classList.toggle('active', isShapeFilled);
+        fillShapeToggle.setAttribute('aria-pressed', String(isShapeFilled));
+    });
+    /** Open export modal (or fallback to immediate PNG download if modal missing). */
+    function openSaveModal() {
+        if (!saveModal) {
+            const f = 'png';
             downloadLink.href = canvas.toDataURL(`image/${f}`);
             downloadLink.download = `drawing.${f}`;
             downloadLink.click();
-        } else if (f) {
-            alert("Invalid format. Please enter 'png' or 'jpeg'.");
+            return;
         }
+        if (!saveFilename.value) saveFilename.value = 'drawing';
+        if (!saveScale.value || Number(saveScale.value) <= 0) saveScale.value = 1;
+        updateQualityVisibility();
+        updateQualityLabel();
+        saveModal.classList.remove('is-hidden');
+    }
+
+    /** Close export modal. */
+    function closeSaveModal() {
+        if (saveModal) saveModal.classList.add('is-hidden');
+    }
+
+    /** Only show quality slider for lossy formats (jpeg/webp). */
+    function updateQualityVisibility() {
+        if (!saveFormat || !saveQualityRow) return;
+        const fmt = saveFormat.value;
+        const needsQuality = (fmt === 'jpeg' || fmt === 'webp');
+        saveQualityRow.style.display = needsQuality ? '' : 'none';
+        if (needsQuality && !saveQuality.value) saveQuality.value = 0.92;
+    }
+
+    /** Reflect numeric quality value as percentage label. */
+    function updateQualityLabel() {
+        if (saveQuality && saveQualityVal) {
+            const q = Math.max(0.5, Math.min(1, Number(saveQuality.value) || 0.92));
+            saveQualityVal.textContent = `${Math.round(q * 100)}%`;
+        }
+    }
+
+    /**
+     * Render canvas to an offscreen canvas with optional background + scale
+     * and trigger a download in the chosen format.
+     */
+    function performExport() {
+        const fmt = (saveFormat?.value || 'png').toLowerCase();
+        let filename = (saveFilename?.value || 'drawing').trim();
+        if (!filename) filename = 'drawing';
+        const scale = Math.max(0.1, Number(saveScale?.value || 1));
+        let bg = saveBg?.value || 'transparent';
+        if ((fmt === 'jpeg' || fmt === 'webp') && bg === 'transparent') bg = 'white';
+        const mime = fmt === 'jpeg' ? 'image/jpeg' : fmt === 'webp' ? 'image/webp' : 'image/png';
+        const quality = (fmt === 'jpeg' || fmt === 'webp') ? Math.max(0.5, Math.min(1, Number(saveQuality?.value || 0.92))) : undefined;
+
+        const outW = Math.max(1, Math.round(canvas.width * scale));
+        const outH = Math.max(1, Math.round(canvas.height * scale));
+        const off = document.createElement('canvas');
+        off.width = outW; off.height = outH;
+        const octx = off.getContext('2d');
+        if (bg !== 'transparent') {
+            octx.save();
+            octx.globalCompositeOperation = 'source-over';
+            let fill = '#ffffff';
+            if (bg === 'white') fill = '#ffffff';
+            else if (bg === 'color') fill = currentColor;
+            octx.fillStyle = fill;
+            octx.fillRect(0, 0, outW, outH);
+            octx.restore();
+        } else {
+            octx.clearRect(0, 0, outW, outH);
+        }
+        octx.imageSmoothingEnabled = true;
+        octx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, outW, outH);
+
+        const dataUrl = quality !== undefined ? off.toDataURL(mime, quality) : off.toDataURL(mime);
+        const ext = fmt === 'jpeg' ? 'jpg' : fmt;
+        downloadLink.href = dataUrl;
+        downloadLink.download = `${filename}.${ext}`;
+        downloadLink.click();
+        closeSaveModal();
+    }
+
+    saveBtn.addEventListener('click', openSaveModal);
+    saveModalClose?.addEventListener('click', closeSaveModal);
+    saveCancel?.addEventListener('click', closeSaveModal);
+    saveConfirm?.addEventListener('click', performExport);
+    saveFormat?.addEventListener('change', () => { updateQualityVisibility(); });
+    saveQuality?.addEventListener('input', updateQualityLabel);
+    saveModal?.addEventListener('click', (e) => {
+        if (e.target === saveModal) closeSaveModal();
+    });
+    // Help modal open/close
+    function openHelp() { helpModal?.classList.remove('is-hidden'); }
+    function closeHelp() { helpModal?.classList.add('is-hidden'); }
+    helpBtn?.addEventListener('click', openHelp);
+    helpModalClose?.addEventListener('click', closeHelp);
+    helpOk?.addEventListener('click', closeHelp);
+    helpModal?.addEventListener('click', (e) => { if (e.target === helpModal) closeHelp(); });
+    // Keyboard shortcuts for app-level actions
+    window.addEventListener('keydown', (e) => {
+        if (!saveModal || saveModal.classList.contains('is-hidden')) return;
+        if (e.key === 'Escape') { e.preventDefault(); closeSaveModal(); }
+        if (e.key === 'Enter') { e.preventDefault(); performExport(); }
     });
     clearButton.addEventListener('click', () => {
         if (confirm('Are you sure you want to clear the canvas?')) {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             saveHistory();
+            persistCanvas();
         }
     });
     undoBtn.addEventListener('click', undo);
     redoBtn.addEventListener('click', redo);
     
+    // Global keyboard shortcuts (tools, symmetry, fill, color picker toggle)
     window.addEventListener('keydown', (e) => {
         if (e.ctrlKey || e.metaKey) {
             if (e.key === 'z') { e.preventDefault(); undo(); }
@@ -580,21 +801,92 @@ window.addEventListener('load', () => {
             if (e.key === 'm') symmetryToggle.click();
             if (e.key === 'f') fillShapeToggle.click();
             if (e.key === 'c') {
-                // Toggle custom color picker
                 if (customPicker && customSwatch) {
                     const show = customPicker.classList.contains('is-hidden');
                     if (show) positionPickerBelow(customSwatch);
                     togglePicker(show);
                 }
+            } else if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+                e.preventDefault();
+                openHelp();
             }
         }
     });
     
-    saveHistory(); 
+    // --- Persistence ---------------------------------------------------------
+    const LS_KEY_IMG = 'pixelpad:canvas';
+    const LS_KEY_SETTINGS = 'pixelpad:settings';
+    function persistCanvas() {
+        try { localStorage.setItem(LS_KEY_IMG, canvas.toDataURL()); } catch(_) {}
+    }
+    function persistSettings() {
+        const settings = {
+            currentColor, currentBrushSize, currentOpacity, sprayStrength, sprayOpacity,
+            activeTool, isSymmetryMode, isShapeFilled, isRoundedRect, nibAngleDeg, nibAspect
+        };
+        try { localStorage.setItem(LS_KEY_SETTINGS, JSON.stringify(settings)); } catch(_) {}
+    }
+    function restoreFromStorage() {
+        try {
+            const s = JSON.parse(localStorage.getItem(LS_KEY_SETTINGS) || 'null');
+            if (s) {
+                currentColor = s.currentColor ?? currentColor;
+                currentBrushSize = s.currentBrushSize ?? currentBrushSize;
+                currentOpacity = s.currentOpacity ?? currentOpacity;
+                sprayStrength = s.sprayStrength ?? sprayStrength;
+                sprayOpacity = s.sprayOpacity ?? sprayOpacity;
+                isSymmetryMode = !!s.isSymmetryMode;
+                isShapeFilled = !!s.isShapeFilled;
+                isRoundedRect = s.isRoundedRect ?? isRoundedRect;
+                nibAngleDeg = s.nibAngleDeg ?? nibAngleDeg;
+                nibAngle = (nibAngleDeg * Math.PI) / 180;
+                nibAspect = s.nibAspect ?? nibAspect;
+                // Reflect UI
+                colorPicker.value = currentColor;
+                colorPicker.dispatchEvent(new Event('input'));
+                brushSizeSlider.value = String(currentBrushSize);
+                primarySlider.value = String(currentOpacity);
+                sprayOpacitySlider.value = String(sprayOpacity);
+                symmetryToggle.classList.toggle('active', isSymmetryMode);
+                symmetryToggle.setAttribute('aria-pressed', String(isSymmetryMode));
+                fillShapeToggle.classList.toggle('active', isShapeFilled);
+                fillShapeToggle.setAttribute('aria-pressed', String(isShapeFilled));
+                roundedToggle?.classList.toggle('active', isRoundedRect);
+                if (s.activeTool) setActiveTool(s.activeTool);
+            }
+            const img = localStorage.getItem(LS_KEY_IMG);
+            if (img) {
+                const image = new Image();
+                image.onload = () => {
+                    ctx.drawImage(image, 0, 0, cssWidth, cssHeight);
+                    saveHistory();
+                };
+                image.src = img;
+            } else {
+                saveHistory();
+            }
+        } catch(_) {
+            saveHistory();
+        }
+    }
+    // Persist on key interactions
+    [brushSizeSlider, primarySlider, sprayOpacitySlider, harmonySelector].forEach(el => el?.addEventListener('input', persistSettings));
+    [symmetryToggle, fillShapeToggle, roundedToggle].forEach(el => el?.addEventListener('click', persistSettings));
+    document.querySelectorAll('.tool-btn[id$="-tool"]').forEach(btn => btn.addEventListener('click', () => { persistSettings(); }));
+    // Save canvas after drawing stops and on export
+    const origStopDrawing = stopDrawing;
+    stopDrawing = function(e) { origStopDrawing(e); persistCanvas(); };
+    const origPerformExport = performExport;
+    performExport = function() { origPerformExport(); persistCanvas(); };
+
+    // Initialize history and settings
+    restoreFromStorage();
     updateUndoRedoButtons();
-    setActiveTool('brush-tool');
+    setActiveTool(activeTool || 'brush-tool');
     updateHarmonyPalette();
 
+    // --- Custom color picker (SV/H) ---
+    /** Show/hide the custom color picker and sync controls with current color. */
     function togglePicker(show) {
         if (!customPicker) return;
         customPicker.classList.toggle('is-hidden', !show);
@@ -606,12 +898,14 @@ window.addEventListener('load', () => {
             if (cpHex) cpHex.value = currentColor;
         }
     }
+    /** Position the picker centered below a given anchor element. */
     function positionPickerBelow(anchorEl) {
         const r = anchorEl.getBoundingClientRect();
         customPicker.style.left = `${r.left + r.width/2}px`;
         customPicker.style.top = `${r.bottom + 8}px`;
         customPicker.style.transform = 'translateX(-50%)';
     }
+    /** Render the vertical hue gradient + indicator. */
     function drawHue() {
         if (!cpH) return;
         const hCtx = cpH.getContext('2d');
@@ -630,6 +924,7 @@ window.addEventListener('load', () => {
         hCtx.lineTo(width, y);
         hCtx.stroke();
     }
+    /** Render the saturation/value square for the selected hue. */
     function drawSV() {
         if (!cpSV) return;
         const sCtx = cpSV.getContext('2d');
@@ -654,6 +949,7 @@ window.addEventListener('load', () => {
         sCtx.arc(x, y, 6, 0, Math.PI*2);
         sCtx.stroke();
     }
+    /** Update hue based on mouse/touch Y within hue canvas. */
     function setHueFromY(clientY) {
         const r = cpH.getBoundingClientRect();
         const t = Math.min(1, Math.max(0, (clientY - r.top) / r.height));
@@ -662,6 +958,7 @@ window.addEventListener('load', () => {
         drawSV();
         commitColor();
     }
+    /** Update saturation/value based on mouse/touch position in SV canvas. */
     function setSVFromEvent(clientX, clientY) {
         const r = cpSV.getBoundingClientRect();
         const tx = Math.min(1, Math.max(0, (clientX - r.left) / r.width));
@@ -670,6 +967,7 @@ window.addEventListener('load', () => {
         drawSV();
         commitColor();
     }
+    /** Commit current HSV to hex, update inputs, and notify app via input event. */
     function commitColor() {
         const hex = hsvToHex(hue, sat, val);
         if (colorPicker.value.toLowerCase() !== hex) {
@@ -713,81 +1011,7 @@ window.addEventListener('load', () => {
     }
 });
 
-function hexToRgba(hex, alpha) {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-function hexToHsv(hex) {
-    const r = parseInt(hex.slice(1,3),16)/255;
-    const g = parseInt(hex.slice(3,5),16)/255;
-    const b = parseInt(hex.slice(5,7),16)/255;
-    const max = Math.max(r,g,b), min = Math.min(r,g,b);
-    const d = max - min;
-    let h = 0;
-    if (d !== 0) {
-        switch (max) {
-            case r: h = ((g - b) / d + (g < b ? 6 : 0)); break;
-            case g: h = ((b - r) / d + 2); break;
-            case b: h = ((r - g) / d + 4); break;
-        }
-        h /= 6;
-    }
-    const s = max === 0 ? 0 : d / max;
-    const v = max;
-    return {h, s, v};
-}
-function hsvToHex(h, s, v) {
-    let r, g, b;
-    const i = Math.floor(h * 6);
-    const f = h * 6 - i;
-    const p = v * (1 - s);
-    const q = v * (1 - f * s);
-    const t = v * (1 - (1 - f) * s);
-    switch (i % 6) {
-        case 0: r=v; g=t; b=p; break;
-        case 1: r=q; g=v; b=p; break;
-        case 2: r=p; g=v; b=t; break;
-        case 3: r=p; g=q; b=v; break;
-        case 4: r=t; g=p; b=v; break;
-        case 5: r=v; g=p; b=q; break;
-    }
-    const toHex = (x) => ('0' + Math.round(x * 255).toString(16)).slice(-2);
-    return '#' + toHex(r) + toHex(g) + toHex(b);
-}
-function hexToHsl(hex){
-    const r = parseInt(hex.slice(1,3),16)/255;
-    const g = parseInt(hex.slice(3,5),16)/255;
-    const b = parseInt(hex.slice(5,7),16)/255;
-    const max = Math.max(r,g,b), min=Math.min(r,g,b);
-    let h=0, s=0; const l=(max+min)/2;
-    if (max!==min){
-        const d=max-min;
-        s = l>0.5 ? d/(2-max-min) : d/(max+min);
-        switch(max){
-            case r: h=(g-b)/d + (g<b?6:0); break;
-            case g: h=(b-r)/d + 2; break;
-            case b: h=(r-g)/d + 4; break;
-        }
-        h/=6;
-    }
-    return {h,s,l};
-}
-function hslToHex(h,s,l){
-    const hue2rgb=(p,q,t)=>{ if(t<0) t+=1; if(t>1) t-=1; if(t<1/6) return p+(q-p)*6*t; if(t<1/2) return q; if(t<2/3) return p+(q-p)*(2/3 - t)*6; return p; };
-    let r,g,b;
-    if (s===0){ r=g=b=l; } else {
-        const q = l<0.5 ? l*(1+s) : l+s-l*s;
-        const p = 2*l - q;
-        r=hue2rgb(p,q,h+1/3); g=hue2rgb(p,q,h); b=hue2rgb(p,q,h-1/3);
-    }
-    const toHex=(x)=>('0'+Math.round(x*255).toString(16)).slice(-2);
-    return '#'+toHex(r)+toHex(g)+toHex(b);
-}
-function rotateHue(h, deg){ let nh=(h + deg/360)%1; if(nh<0) nh+=1; return nh; }
-
+// Build and display a small palette of harmonious colors beside the picker
 function updateHarmonyPalette() {
     try {
         const base = document.getElementById('color-picker').value || '#ff9500';

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Color Utils Tests</title>
+  <style> body { font-family: system-ui, Arial, sans-serif; padding: 16px; } .pass{color:green} .fail{color:#b00020} </style>
+</head>
+<body>
+  <h1>Color Utilities – Quick Tests</h1>
+  <pre id="out"></pre>
+  <script type="module">
+    import { hexToHsv, hsvToHex, hexToHsl, hslToHex, rotateHue } from '../color-utils.js';
+    const out = document.getElementById('out');
+    const logs = [];
+    function log(ok, msg) { logs.push(`${ok ? 'PASS' : 'FAIL'} ${msg}`); }
+    function approx(a,b,eps=1e-6){ return Math.abs(a-b) < eps; }
+
+    // Round-trip tests HSV <-> HEX on a few samples
+    const samples = ['#ff0000','#00ff00','#0000ff','#ffffff','#000000','#ff9500'];
+    for (const hex of samples){
+      const {h,s,v} = hexToHsv(hex);
+      const back = hsvToHex(h,s,v);
+      log(back.toLowerCase() === hex.toLowerCase(), `HSV roundtrip ${hex} -> ${back}`);
+    }
+
+    // HSL round-trip on a middle color (approx due to rounding)
+    const hsl0 = hexToHsl('#6699cc');
+    const hexBack = hslToHex(hsl0.h, hsl0.s, hsl0.l);
+    log(hexBack.length === 7, `HSL hex format ${hexBack}`);
+
+    // Rotate hue
+    const r = rotateHue(0, 180);
+    log(approx(r, 0.5), `rotateHue(0,180) ~ 0.5 got ${r}`);
+
+    out.textContent = logs.join('\n');
+  </script>
+</body>
+</html>

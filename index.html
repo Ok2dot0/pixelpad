@@ -4,18 +4,23 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>PixelPad</title>
+        <!-- App styles -->
         <link rel="stylesheet" href="style.css" />
+        <!-- Icon font (Tabler Icons) used for toolbar buttons -->
         <link
             rel="stylesheet"
             href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css"
         />
     </head>
     <body>
-        <div id="toolbar" class="toolbar">
+        <!-- Floating top toolbar: color, tools, settings, history, save -->
+        <div id="toolbar" class="toolbar" role="toolbar" aria-label="Drawing tools toolbar">
+            <!-- Color picker + palette harmonies -->
             <div class="tool-group">
                 <label for="color-picker">Color:</label>
-                <input type="color" id="color-picker" value="#ff9500" style="display:none" />
+                <input type="color" id="color-picker" value="#ff9500" class="is-hidden" />
                 <div id="custom-color-swatch" class="color-swatch no-drag" title="Pick color"></div>
+                <!-- Custom color picker (popup) -->
                 <div id="custom-color-picker" class="color-picker-popup no-drag is-hidden" role="dialog" aria-label="Color picker" aria-modal="false">
                     <div class="cp-row">
                         <canvas id="cp-sv" width="220" height="160" aria-label="Saturation/Value"></canvas>
@@ -24,7 +29,7 @@
                     <div class="cp-row cp-inputs">
                         <label for="cp-hex">Hex</label>
                         <input id="cp-hex" type="text" value="#ff9500" maxlength="7" spellcheck="false" />
-                        <button id="cp-close" type="button" class="tool-btn">✕</button>
+                        <button id="cp-close" type="button" class="tool-btn" aria-label="Close color picker">✕</button>
                     </div>
                 </div>
                 <label for="harmony-selector">Harmony:</label>
@@ -36,27 +41,29 @@
                 <div id="palette-container"></div>
             </div>
             <div class="separator"></div>
+            <!-- Drawing tools -->
             <div class="tool-group">
-                <button id="brush-tool" class="tool-btn active" title="Brush (B)">
+                <button id="brush-tool" type="button" class="tool-btn active" title="Brush (B)" aria-pressed="true">
                     <i class="ti ti-paint"></i>
                 </button>
-                <button id="calligraphy-brush-tool" class="tool-btn" title="Calligraphy Brush (N)">
+                <button id="calligraphy-brush-tool" type="button" class="tool-btn" title="Calligraphy Brush (N)" aria-pressed="false">
                     <i class="ti ti-pencil"></i>
                 </button>
-                <button id="spray-brush-tool" class="tool-btn" title="Spray Brush (V)">
+                <button id="spray-brush-tool" type="button" class="tool-btn" title="Spray Brush (V)" aria-pressed="false">
                     <i class="ti ti-spray"></i>
                 </button>
-                <button id="eraser-tool" class="tool-btn" title="Eraser (E)">
+                <button id="eraser-tool" type="button" class="tool-btn" title="Eraser (E)" aria-pressed="false">
                     <i class="ti ti-eraser"></i>
                 </button>
-                <button id="rect-tool" class="tool-btn" title="Rectangle (R)">
+                <button id="rect-tool" type="button" class="tool-btn" title="Rectangle (R)" aria-pressed="false">
                     <i class="ti ti-rectangle"></i>
                 </button>
-                <button id="circle-tool" class="tool-btn" title="Circle (O)">
+                <button id="circle-tool" type="button" class="tool-btn" title="Circle (O)" aria-pressed="false">
                     <i class="ti ti-circle"></i>
                 </button>
             </div>
             <div class="separator"></div>
+            <!-- Tool settings (size, opacity/strength, modifiers) -->
             <div class="tool-group">
                 <label for="brush-size">Size:</label>
                 <input type="range" id="brush-size" min="1" max="100" value="10" title="Brush Size" />
@@ -72,7 +79,8 @@
                     title="Opacity/Strength"
                 />
 
-                <div id="spray-opacity-container" class="tool-group" style="display: none; margin-left: 8px;">
+                <!-- Visible only for spray brush -->
+                <div id="spray-opacity-container" class="tool-group">
                     <label for="spray-opacity-slider">Opacity:</label>
                     <input
                         type="range"
@@ -85,37 +93,110 @@
                     />
                 </div>
 
-                <button id="fill-shape-toggle" class="tool-btn" title="Fill Shape (F)">
+                <button id="fill-shape-toggle" type="button" class="tool-btn" title="Fill Shape (F)" aria-pressed="false">
                     <i class="ti ti-droplet-filled"></i>
                 </button>
-                <button id="rounded-corners-toggle" class="tool-btn" title="Rounded Corners" style="display: none;">
+                <button id="rounded-corners-toggle" type="button" class="tool-btn" title="Rounded Corners" aria-pressed="true">
                     <i class="ti ti-square-rounded"></i>
                 </button>
-                <button id="symmetry-toggle" class="tool-btn" title="Symmetry (M)">
+                <button id="symmetry-toggle" type="button" class="tool-btn" title="Symmetry (M)" aria-pressed="false">
                     <i class="ti ti-flip-horizontal"></i>
                 </button>
             </div>
             <div class="separator"></div>
+            <!-- History and file actions -->
             <div class="tool-group">
-                <button id="undo-btn" class="tool-btn" title="Undo (Ctrl+Z)">
+                <button id="undo-btn" type="button" class="tool-btn" title="Undo (Ctrl+Z)">
                     <i class="ti ti-arrow-back-up"></i>
                 </button>
-                <button id="redo-btn" class="tool-btn" title="Redo (Ctrl+Y)">
+                <button id="redo-btn" type="button" class="tool-btn" title="Redo (Ctrl+Y)">
                     <i class="ti ti-arrow-forward-up"></i>
                 </button>
-                <button id="clear-canvas" class="danger-btn" title="Clear Canvas">
+                <button id="clear-canvas" type="button" class="danger-btn" title="Clear Canvas">
                     <i class="ti ti-trash"></i>
                 </button>
-                <button id="save-image" class="success-btn" title="Save Image (Ctrl+S)">
+                <button id="save-image" type="button" class="success-btn" title="Save Image (Ctrl+S)">
                     <i class="ti ti-device-floppy"></i>
+                </button>
+                <button id="help-shortcuts" type="button" class="tool-btn" title="Shortcuts (?)">
+                    <i class="ti ti-help-circle"></i>
                 </button>
             </div>
         </div>
-
+        <!-- Cursor previews -->
         <div id="brush-preview"></div>
         <div id="brush-size-preview" class="hidden"></div>
-        <a id="download-link" style="display: none"></a>
+        <a id="download-link" class="is-hidden" aria-hidden="true"></a>
+        <!-- Main drawing surface -->
         <canvas id="drawing-canvas"></canvas>
-        <script src="script.js"></script>
+        <!-- Save dialog (export options) -->
+        <div id="save-modal" class="modal is-hidden" role="dialog" aria-modal="true" aria-labelledby="save-modal-title">
+            <div class="modal-content no-drag">
+                <div class="modal-header">
+                    <h3 id="save-modal-title">Save Image</h3>
+                    <button id="save-modal-close" class="tool-btn" title="Close"><i class="ti ti-x"></i></button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-row">
+                        <label for="save-filename">File name</label>
+                        <input id="save-filename" type="text" value="drawing" />
+                    </div>
+                    <div class="form-row">
+                        <label for="save-format">Format</label>
+                        <select id="save-format">
+                            <option value="png" selected>PNG (transparent)</option>
+                            <option value="jpeg">JPEG</option>
+                            <option value="webp">WebP</option>
+                        </select>
+                    </div>
+                    <div class="form-row" id="save-quality-row">
+                        <label for="save-quality">Quality</label>
+                        <input id="save-quality" type="range" min="0.5" max="1" step="0.05" value="0.92" />
+                        <span id="save-quality-val">92%</span>
+                    </div>
+                    <div class="form-row">
+                        <label for="save-scale">Scale</label>
+                        <input id="save-scale" type="number" min="0.1" step="0.1" value="1" />
+                        <span class="hint">Export size multiplier</span>
+                    </div>
+                    <div class="form-row" id="save-bg-row">
+                        <label for="save-bg">Background</label>
+                        <select id="save-bg">
+                            <option value="transparent" selected>Transparent</option>
+                            <option value="white">White</option>
+                            <option value="color">Current color</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="save-cancel" type="button" class="tool-btn" aria-label="Cancel save"><i class="ti ti-x"></i></button>
+                    <button id="save-confirm" type="button" class="success-btn" aria-label="Confirm save"><i class="ti ti-device-floppy"></i></button>
+                </div>
+            </div>
+        </div>
+        <!-- Shortcuts help modal -->
+        <div id="help-modal" class="modal is-hidden" role="dialog" aria-modal="true" aria-labelledby="help-modal-title">
+            <div class="modal-content no-drag">
+                <div class="modal-header">
+                    <h3 id="help-modal-title">Keyboard Shortcuts</h3>
+                    <button id="help-modal-close" class="tool-btn" title="Close"><i class="ti ti-x"></i></button>
+                </div>
+                <div class="modal-body">
+                    <ul>
+                        <li><strong>B</strong> Brush, <strong>N</strong> Calligraphy, <strong>V</strong> Spray, <strong>E</strong> Eraser</li>
+                        <li><strong>R</strong> Rectangle, <strong>O</strong> Circle</li>
+                        <li><strong>M</strong> Toggle symmetry, <strong>F</strong> Toggle fill</li>
+                        <li><strong>C</strong> Toggle color picker</li>
+                        <li><strong>Ctrl+Z</strong> Undo, <strong>Ctrl+Y</strong> Redo, <strong>Ctrl+S</strong> Save</li>
+                        <li><strong>?</strong> Show this help</li>
+                    </ul>
+                </div>
+                <div class="modal-footer">
+                    <button id="help-ok" type="button" class="success-btn">OK</button>
+                </div>
+            </div>
+        </div>
+        <!-- App logic -->
+        <script type="module" src="script.js" defer></script>
     </body>
     </html>

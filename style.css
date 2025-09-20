@@ -1,35 +1,70 @@
+/*
+  PixelPad styles
+  - Organized sections
+  - CSS custom properties for easy theming
+  - Utility classes and comments for maintainability
+*/
+
+:root {
+    /* Theme colors */
+    --bg-app: #555;
+    --bg-toolbar: #f0f0f0;
+    --bg-canvas: #ffffff;
+    --fg: #333;
+    --fg-muted: #666;
+    --border: #ccc;
+    --border-strong: #888;
+    --shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,0.35);
+    --radius: 8px;
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 10px;
+    --space-4: 12px;
+    --space-5: 20px;
+
+    /* Button colors */
+    --btn: #ddd; --btn-hover: #ccc; --btn-active: #333; --btn-active-fg: #fff;
+    --btn-danger: #e63946; --btn-success: #2a9d8f;
+}
+
+/* Utilities */
+.is-hidden { display: none !important; }
+
+/* Global page baseline */
 body {
     margin: 0;
-    font-family: Arial, sans-serif;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
     overflow: hidden;
-    background-color: #555;
+    background-color: var(--bg-app);
 }
 
-#drawing-canvas {
-    display: block;
-    background-color: #ffffff;
-}
+/* Main drawing surface (full-viewport canvas) */
+#drawing-canvas { display: block; background-color: var(--bg-canvas); }
 
+/* Floating toolbar at top center (draggable) */
 .toolbar {
     position: absolute;
-    top: 20px;
+    top: var(--space-5);
     left: 50%;
     transform: translateX(-50%);
-    background-color: #f0f0f0;
-    border-radius: 8px;
-    padding: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    background-color: var(--bg-toolbar);
+    border-radius: var(--radius);
+    padding: var(--space-2);
+    box-shadow: var(--shadow);
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--space-3);
     user-select: none;
     cursor: move;
+    max-width: calc(100vw - 16px);
 }
 
+/* Group controls within toolbar */
 .tool-group {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-2);
 }
 
 .tool-group label {
@@ -39,9 +74,10 @@ body {
 .separator {
     width: 1px;
     height: 30px;
-    background-color: #ccc;
+    background-color: var(--border);
 }
 
+/* Native color input is visually hidden; we use a custom swatch/picker */
 #color-picker {
     width: 40px;
     height: 40px;
@@ -56,12 +92,12 @@ body {
 
 #color-picker::-webkit-color-swatch {
     border-radius: 4px;
-    border: 2px solid #888;
+    border: 2px solid var(--border-strong);
 }
 
 #color-picker::-moz-color-swatch {
     border-radius: 4px;
-    border: 2px solid #888;
+    border: 2px solid var(--border-strong);
 }
 
 #palette-container {
@@ -69,6 +105,7 @@ body {
     gap: 6px;
 }
 
+/* Small color circle swatches generated from harmony palette */
 .palette-swatch {
     width: 28px;
     height: 28px;
@@ -104,18 +141,13 @@ body {
     line-height: 0;
 }
 
-.tool-btn {
-    background-color: #ddd;
-    color: #333;
-}
+.tool-btn { background-color: var(--btn); color: var(--fg); }
 
-.tool-btn:hover {
-    background-color: #ccc;
-}
+.tool-btn:hover { background-color: var(--btn-hover); }
 
 .tool-btn.active {
-    background-color: #333;
-    color: white;
+    background-color: var(--btn-active);
+    color: var(--btn-active-fg);
 }
 
 .tool-btn:disabled {
@@ -123,16 +155,11 @@ body {
     cursor: not-allowed;
 }
 
-.danger-btn {
-    background-color: #e63946;
-    color: white;
-}
+.danger-btn { background-color: var(--btn-danger); color: #fff; }
 
-.success-btn {
-    background-color: #2a9d8f;
-    color: white;
-}
+.success-btn { background-color: var(--btn-success); color: #fff; }
 
+/* Visual preview of brush under cursor */
 #brush-preview {
     position: absolute;
     border: 1px solid #000;
@@ -142,6 +169,7 @@ body {
     display: none;
 }
 
+/* Large centered ring when changing brush size */
 #brush-size-preview {
     position: absolute;
     top: 50%;
@@ -163,6 +191,7 @@ canvas.hide-cursor {
     cursor: none;
 }
 
+/* Crosshair cursor per active tool */
 .cursor-brush-tool,
 .cursor-calligraphy-brush-tool,
 .cursor-spray-brush-tool,
@@ -172,25 +201,26 @@ canvas.hide-cursor {
     cursor: crosshair;
 }
 
+/* Custom color swatch and popup picker */
 .color-swatch {
     width: 40px;
     height: 40px;
     border-radius: 4px;
-    border: 2px solid #888;
+    border: 2px solid var(--border-strong);
     cursor: pointer;
     background: #ff9500;
 }
 
 .color-picker-popup {
     position: absolute;
-    top: 64px;
-    left: 50%;
+    top: 64px; /* updated dynamically */
+    left: 50%; /* updated dynamically */
     transform: translateX(-50%);
     background: #fff;
-    border: 1px solid #ccc;
-    border-radius: 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
     box-shadow: 0 8px 24px rgba(0,0,0,.2);
-    padding: 10px;
+    padding: var(--space-3);
     z-index: 1000;
 }
 
@@ -206,7 +236,39 @@ canvas.hide-cursor {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
-#cp-sv { cursor: crosshair; border-radius: 6px; border: 1px solid #bbb; }
-#cp-h { cursor: ns-resize; border-radius: 6px; border: 1px solid #bbb; }
+#cp-sv { cursor: crosshair; border-radius: 6px; border: 1px solid #bbb; touch-action: none; }
+#cp-h { cursor: ns-resize; border-radius: 6px; border: 1px solid #bbb; touch-action: none; }
 
 .no-drag { cursor: pointer; }
+
+/* Modal used for exporting/saving the drawing */
+.modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    display: grid;
+    place-items: center;
+    z-index: 2000;
+}
+.modal.is-hidden { display: none; }
+.modal-content {
+    background: #fff;
+    width: 360px;
+    max-width: 92vw;
+    border-radius: 10px;
+    box-shadow: var(--shadow-lg);
+    padding: var(--space-4);
+}
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.modal-body { display: grid; gap: 10px; }
+.modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+.form-row { display: grid; grid-template-columns: 110px 1fr auto; align-items: center; gap: 8px; }
+.form-row input[type="text"],
+.form-row input[type="number"],
+.form-row select { padding: 6px 8px; border: 1px solid #bbb; border-radius: 6px; }
+.hint { color: var(--fg-muted); font-size: 12px; }
+
+/* Hidden elements toggled from JS */
+#spray-opacity-container { display: none; margin-left: 8px; }
+#rounded-corners-toggle { display: none; }
+#save-quality-row { display: none; }
