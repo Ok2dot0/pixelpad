@@ -55,6 +55,10 @@ body {
     display: flex;
     align-items: center;
     gap: var(--space-3);
+    /* Allow wrapping when there isn't enough horizontal space */
+    flex-wrap: wrap;
+    /* Separate wrapped rows a little */
+    row-gap: var(--space-2);
     user-select: none;
     cursor: move;
     max-width: calc(100vw - 16px);
@@ -65,6 +69,8 @@ body {
     display: flex;
     align-items: center;
     gap: var(--space-2);
+    /* Let long groups (like sliders) wrap internally if needed */
+    flex-wrap: wrap;
 }
 
 .tool-group label {
@@ -75,6 +81,24 @@ body {
     width: 1px;
     height: 30px;
     background-color: var(--border);
+}
+
+/* Responsive tweaks so the toolbar always fits the viewport */
+@media (max-width: 900px) {
+    .toolbar {
+        justify-content: center; /* nicer layout when wrapped */
+    }
+}
+
+@media (max-width: 700px) {
+    /* Hide vertical separators on tight layouts to save space */
+    .separator { display: none; }
+}
+
+/* Fallback: if an extremely small width still causes overflow, allow horizontal scroll
+   while keeping wrapping for most sizes. */
+.toolbar {
+    overflow-x: auto;
 }
 
 /* Native color input is visually hidden; we use a custom swatch/picker */
