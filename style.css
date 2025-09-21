@@ -61,7 +61,12 @@ body {
     row-gap: var(--space-2);
     user-select: none;
     cursor: move;
+    /* Keep the toolbar as small as its content, but never exceed viewport */
+    width: fit-content;
     max-width: calc(100vw - 16px);
+    /* Ensure toolbar sits above canvas and page content */
+    z-index: 10;
+    box-sizing: border-box;
 }
 
 /* Group controls within toolbar */
@@ -71,6 +76,7 @@ body {
     gap: var(--space-2);
     /* Let long groups (like sliders) wrap internally if needed */
     flex-wrap: wrap;
+    min-width: 0; /* allow groups to shrink within flex container */
 }
 
 .tool-group label {
@@ -95,11 +101,8 @@ body {
     .separator { display: none; }
 }
 
-/* Fallback: if an extremely small width still causes overflow, allow horizontal scroll
-   while keeping wrapping for most sizes. */
-.toolbar {
-    overflow-x: auto;
-}
+/* Ensure popup content can overflow the toolbar box without clipping */
+.toolbar { overflow: visible; }
 
 /* Native color input is visually hidden; we use a custom swatch/picker */
 #color-picker {
@@ -236,7 +239,8 @@ canvas.hide-cursor {
 }
 
 .color-picker-popup {
-    position: absolute;
+    /* Use fixed positioning so it renders above and outside the toolbar box */
+    position: fixed;
     top: 64px; /* updated dynamically */
     left: 50%; /* updated dynamically */
     transform: translateX(-50%);
@@ -245,8 +249,11 @@ canvas.hide-cursor {
     border-radius: var(--radius);
     box-shadow: 0 8px 24px rgba(0,0,0,.2);
     padding: var(--space-3);
-    z-index: 1000;
+    z-index: 1000; /* Ensure the popup overlays toolbar contents */
 }
+
+/* Make sure the popup overlays toolbar contents */
+/* (single definition above maintains z-index and positioning) */
 
 .color-picker-popup.is-hidden { display: none; }
 
@@ -296,3 +303,15 @@ canvas.hide-cursor {
 #spray-opacity-container { display: none; margin-left: 8px; }
 #rounded-corners-toggle { display: none; }
 #save-quality-row { display: none; }
+
+/* Ensure toolbar remains as small as its content and never introduces horizontal scroll */
+#toolbar.toolbar {
+    width: max-content;
+    max-width: calc(100vw - 16px);
+    overflow: visible;
+}
+
+/* Prevent sliders from forcing excessive width; keep them compact and responsive */
+.tool-group input[type="range"] {
+    width: clamp(100px, 22vw, 160px);
+}

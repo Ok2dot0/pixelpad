@@ -50,6 +50,11 @@ window.addEventListener('load', () => {
     const helpModal = document.getElementById('help-modal');
     const helpModalClose = document.getElementById('help-modal-close');
     const helpOk = document.getElementById('help-ok');
+    // Confirm clear modal refs
+    const confirmModal = document.getElementById('confirm-clear-modal');
+    const confirmClose = document.getElementById('confirm-clear-close');
+    const confirmCancel = document.getElementById('confirm-clear-cancel');
+    const confirmConfirm = document.getElementById('confirm-clear-confirm');
 
     // --- Drawing state ---
     let isDrawing = false;            // true while mouse is held down on canvas
@@ -122,7 +127,12 @@ window.addEventListener('load', () => {
         }
     }
     resizeCanvas(false);
-    window.addEventListener('resize', () => resizeCanvas(true));
+    window.addEventListener('resize', () => { resizeCanvas(true); ensureToolbarInViewport(); });
+
+    // Detach color picker from toolbar so it overlays UI and doesn't affect toolbar size
+    if (customPicker && customPicker.parentElement !== document.body) {
+        document.body.appendChild(customPicker);
+    }
 
     /** Push current canvas state into undo history. Truncates future states after undo. */
     function saveHistory() {
@@ -591,12 +601,27 @@ window.addEventListener('load', () => {
         sliderTimeout = setTimeout(() => brushSizePreview.classList.add('hidden'), 1000);
     }
     
+    /** Keep toolbar within viewport bounds */
+    function ensureToolbarInViewport() {
+        const margin = 8;
+        const w = toolbar.offsetWidth;
+        const h = toolbar.offsetHeight;
+        let left = parseFloat(toolbar.style.left || '0');
+        let top = parseFloat(toolbar.style.top || '0');
+        const maxLeft = Math.max(margin, window.innerWidth - w - margin);
+        const maxTop = Math.max(margin, window.innerHeight - h - margin);
+        left = Math.min(Math.max(left, margin), maxLeft);
+        top = Math.min(Math.max(top, margin), maxTop);
+        toolbar.style.left = `${left}px`;
+        toolbar.style.top = `${top}px`;
+    }
     /** Drag handler to move the floating toolbar around the screen. */
     function dragToolbar(e) {
         if (!isDraggingToolbar) return;
         toolbar.style.transform = 'translateX(0)';
         toolbar.style.left = `${e.clientX - dragOffsetX}px`;
         toolbar.style.top = `${e.clientY - dragOffsetY}px`;
+        ensureToolbarInViewport();
     }
 
     /** Stop dragging the toolbar and remove listeners. */
@@ -778,12 +803,54 @@ window.addEventListener('load', () => {
         if (e.key === 'Escape') { e.preventDefault(); closeSaveModal(); }
         if (e.key === 'Enter') { e.preventDefault(); performExport(); }
     });
-    clearButton.addEventListener('click', () => {
-        if (confirm('Are you sure you want to clear the canvas?')) {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            saveHistory();
-            persistCanvas();
+    // ----- Clear canvas (custom confirmation modal) -----
+    let lastFocusBeforeConfirm = null;
+    function getFocusable(modalEl){
+        if (!modalEl) return [];
+        const sel = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+        return Array.from(modalEl.querySelectorAll(sel)).filter(el => !el.hasAttribute('disabled'));
+    }
+    function openConfirmClear() {
+        if (!confirmModal) return;
+        lastFocusBeforeConfirm = document.activeElement;
+        confirmModal.classList.remove('is-hidden');
+        // focus first actionable element
+        setTimeout(() => { confirmConfirm?.focus(); }, 0);
+    }
+    function closeConfirmClear() {
+        confirmModal?.classList.add('is-hidden');
+        if (lastFocusBeforeConfirm && typeof lastFocusBeforeConfirm.focus === 'function') {
+            lastFocusBeforeConfirm.focus();
         }
+    }
+    function performClear() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        saveHistory();
+        persistCanvas();
+        closeConfirmClear();
+    }
+    clearButton?.addEventListener('click', openConfirmClear);
+    confirmClose?.addEventListener('click', closeConfirmClear);
+    confirmCancel?.addEventListener('click', closeConfirmClear);
+    confirmConfirm?.addEventListener('click', performClear);
+    // Close when backdrop clicked
+    confirmModal?.addEventListener('click', (e) => { if (e.target === confirmModal) closeConfirmClear(); });
+    // Keyboard handling for modal
+    window.addEventListener('keydown', (e) => {
+        if (!confirmModal || confirmModal.classList.contains('is-hidden')) return;
+        // Trap focus within modal while open
+        if (e.key === 'Tab') {
+            const focusables = getFocusable(confirmModal);
+            if (focusables.length) {
+                const first = focusables[0];
+                const last = focusables[focusables.length - 1];
+                const active = document.activeElement;
+                if (e.shiftKey && active === first) { e.preventDefault(); last.focus(); return; }
+                if (!e.shiftKey && active === last) { e.preventDefault(); first.focus(); return; }
+            }
+        }
+        if (e.key === 'Escape') { e.preventDefault(); closeConfirmClear(); }
+        if (e.key === 'Enter') { e.preventDefault(); performClear(); }
     });
     undoBtn.addEventListener('click', undo);
     redoBtn.addEventListener('click', redo);

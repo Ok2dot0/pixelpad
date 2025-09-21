@@ -196,6 +196,24 @@
                 </div>
             </div>
         </div>
+            <!-- Delete/Clear confirmation modal -->
+            <div id="confirm-clear-modal" class="modal is-hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-clear-title">
+                <div class="modal-content no-drag">
+                    <div class="modal-header">
+                        <h3 id="confirm-clear-title">Clear canvas?</h3>
+                        <button id="confirm-clear-close" type="button" class="tool-btn" aria-label="Close">
+                            <i class="ti ti-x"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <p>This will remove everything from the canvas. You can still undo afterwards.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button id="confirm-clear-cancel" type="button" class="tool-btn">Cancel</button>
+                        <button id="confirm-clear-confirm" type="button" class="danger-btn">Clear</button>
+                    </div>
+                </div>
+            </div>
         <!-- App logic -->
         <script type="module" src="script.js" defer></script>
     </body>
