@@ -272,6 +272,10 @@ canvas.hide-cursor {
 
 .no-drag { cursor: pointer; }
 
+/* Cursor hints for panning (Space or Middle mouse) */
+canvas { cursor: default; }
+canvas.panning { cursor: grabbing !important; }
+
 /* Modal used for exporting/saving the drawing */
 .modal {
     position: fixed;
