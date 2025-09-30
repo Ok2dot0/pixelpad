@@ -1121,11 +1121,51 @@ window.addEventListener('load', () => {
             lastFocusBeforeConfirm.focus();
         }
     }
+    // Remove any persisted state for this app
+    function clearAppStorage() {
+        try {
+            const prefixes = ['pixelpad:'];
+            // localStorage keys
+            for (let i = localStorage.length - 1; i >= 0; i--) {
+                const k = localStorage.key(i);
+                if (k && prefixes.some(p => k.startsWith(p))) localStorage.removeItem(k);
+            }
+        } catch (_) {}
+        try {
+            // sessionStorage keys (none used today, but future-proof)
+            for (let i = sessionStorage.length - 1; i >= 0; i--) {
+                const k = sessionStorage.key(i);
+                if (k && k.startsWith('pixelpad:')) sessionStorage.removeItem(k);
+            }
+        } catch (_) {}
+    }
     function performClear() {
-        docCtx.clearRect(0, 0, docCssW, docCssH);
-        saveHistory();
+        // 1) Clear any persistent cache/state
+        clearAppStorage();
+
+        // 2) Reset the document canvas size to the initial "normal" size (fit to window)
+        initDocumentCanvas(window.innerWidth, window.innerHeight);
+
+        // 3) Reset view (pan/zoom)
+        viewScale = 1;
+        viewOffsetX = 0;
+        viewOffsetY = 0;
+
+    // 4) Reset drawing/transient state (preserve undo history so user can undo this clear)
+        isDrawing = false;
+        savedCanvasState = null;
+        currentPath = null;
+        symmetryPath = null;
+        pathPoints = [];
+        calligraphyPoints = [];
+        calligraphyOffCtx = null;
+        calligraphyOffscreenCanvas = null;
+    // Push this cleared state into history so the clear can be undone
+    saveHistory();
+        updateUndoRedoButtons();
+
+        // 5) Redraw viewport and close modal (do NOT re-persist cleared canvas/settings)
         render();
-        persistCanvas();
         closeConfirmClear();
     }
     clearButton?.addEventListener('click', openConfirmClear);
